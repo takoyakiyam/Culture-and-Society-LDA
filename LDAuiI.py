@@ -109,8 +109,13 @@ class LDAApp(QWidget):
         topic_summaries = self.generate_topic_summaries()
         self.summary_text.setPlainText("\n".join(topic_summaries))
 
-        # Reset wordclouds
+        # Reset wordclouds and navigation buttons
         self.wordclouds = None
+        self.prev_button.setVisible(False)
+        self.next_button.setVisible(False)
+        self.current_wordcloud = 0
+        self.figure.clear()
+        self.canvas.draw()
 
     def generate_topic_summaries(self):
         no_top_words = 10
