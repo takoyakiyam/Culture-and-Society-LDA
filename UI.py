@@ -1,0 +1,171 @@
+import sys
+import pandas as pd
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QSpinBox, QTextEdit, QHBoxLayout
+from PyQt5.QtGui import QFont
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+class LDAApp(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle('LDA Topic Modeling - World Important Events')
+        self.setGeometry(100, 100, 1200, 800)
+        self.setStyleSheet("background-color: #f0f0f0;")  # Modern light background
+
+        # Step 1: Layout
+        self.layout = QVBoxLayout()
+
+        # Bold title for the dataset
+        self.title_label = QLabel("Dataset: 'World Important Events - Ancient to Modern'")
+        self.title_label.setFont(QFont('Arial', 16, QFont.Bold))
+        self.layout.addWidget(self.title_label)
+
+        # Dataset description
+        self.description_label = QLabel(
+            "This dataset spans significant historical milestones from ancient times to the modern era, "
+            "covering diverse global incidents. It provides a comprehensive timeline of events that "
+            "have shaped the world, offering insights into wars, cultural shifts, technological "
+            "advancements, and social movements."
+        )
+        self.description_label.setWordWrap(True)
+        self.layout.addWidget(self.description_label)
+
+        # Input: Number of topics
+        self.topic_label = QLabel("Number of Topics:")
+        self.layout.addWidget(self.topic_label)
+        
+        self.topic_count = QSpinBox()
+        self.topic_count.setMinimum(1)
+        self.topic_count.setValue(5)  # Default value
+        self.layout.addWidget(self.topic_count)
+
+        # Button to generate topics
+        self.generate_button = QPushButton("Generate Topics")
+        self.generate_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        self.generate_button.clicked.connect(self.run_lda)
+        self.layout.addWidget(self.generate_button)
+
+        # Button to generate word clouds
+        self.wordcloud_button = QPushButton("Generate Word Clouds")
+        self.wordcloud_button.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
+        self.wordcloud_button.clicked.connect(self.generate_wordclouds)
+        self.layout.addWidget(self.wordcloud_button)
+
+        # Output: Topic summaries
+        self.summary_label = QLabel("Topic Summaries:")
+        self.layout.addWidget(self.summary_label)
+
+        self.summary_text = QTextEdit()
+        self.summary_text.setReadOnly(True)
+        self.layout.addWidget(self.summary_text)
+
+        # Word cloud plot
+        self.figure = Figure(figsize=(10, 6))
+        self.canvas = FigureCanvas(self.figure)
+        self.layout.addWidget(self.canvas)
+
+        # Navigation buttons layout
+        self.nav_layout = QHBoxLayout()
+
+        # Previous button as an arrow
+        self.prev_button = QPushButton("<-")
+        self.prev_button.setStyleSheet("background-color: #FFC107; font-weight: bold;")
+        self.prev_button.clicked.connect(self.prev_wordcloud)
+        self.prev_button.setVisible(False)  # Initially hidden
+        self.nav_layout.addWidget(self.prev_button)
+
+        # Next button as an arrow
+        self.next_button = QPushButton("->")
+        self.next_button.setStyleSheet("background-color: #FFC107; font-weight: bold;")
+        self.next_button.clicked.connect(self.next_wordcloud)
+        self.next_button.setVisible(False)  # Initially hidden
+        self.nav_layout.addWidget(self.next_button)
+
+        self.layout.addLayout(self.nav_layout)
+        self.setLayout(self.layout)
+
+        # Load and process the dataset
+        self.df = pd.read_csv('World Important Dates.csv')
+        self.impact_text = self.df['Impact'].dropna()
+        self.count_vectorizer = CountVectorizer(stop_words='english', max_df=0.95, min_df=2)
+        self.doc_term_matrix = self.count_vectorizer.fit_transform(self.impact_text)
+        self.feature_names = self.count_vectorizer.get_feature_names_out()
+        self.lda = None
+        self.wordclouds = None
+        self.current_wordcloud = 0
+
+    def run_lda(self):
+        # Step 4: Apply LDA
+        n_topics = self.topic_count.value()
+        self.lda = LatentDirichletAllocation(n_components=n_topics, random_state=42)
+        self.lda.fit(self.doc_term_matrix)
+
+        # Generate and display topic summaries
+        topic_summaries = self.generate_topic_summaries()
+        self.summary_text.setPlainText("\n".join(topic_summaries))
+
+        # Reset wordclouds
+        self.wordclouds = None
+
+    def generate_topic_summaries(self):
+        no_top_words = 10
+        topic_summaries = []
+        for topic_idx, topic in enumerate(self.lda.components_):
+            top_words = [self.feature_names[i] for i in topic.argsort()[:-no_top_words - 1:-1]]
+            summary = f"Topic {topic_idx + 1}: {', '.join(top_words[:5])}"
+            topic_summaries.append(summary)
+        return topic_summaries
+
+    def generate_wordclouds(self):
+        if self.lda is None:
+            self.summary_text.setPlainText("Please generate topics first.")
+            return
+
+        if self.wordclouds is not None:
+            self.summary_text.setPlainText("Please generate topics again after changing the number of topics.")
+            return
+
+        # Generate word clouds for the topics
+        no_top_words = 10
+        self.wordclouds = []
+        for topic_idx, topic in enumerate(self.lda.components_):
+            word_freq = {self.feature_names[i]: topic[i] for i in topic.argsort()[:-no_top_words - 1:-1]}
+            wc = WordCloud(background_color='#FFFFFF', width=400, height=200).generate_from_frequencies(word_freq)
+            self.wordclouds.append(wc)
+
+        self.display_wordcloud(0)
+
+        # Show navigation buttons
+        self.prev_button.setVisible(True)
+        self.next_button.setVisible(True)
+
+    def display_wordcloud(self, idx):
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        ax.imshow(self.wordclouds[idx], interpolation='bilinear')
+        ax.axis("off")
+        ax.set_title(f"Topic {idx + 1}", fontsize=14, fontweight='bold')
+        self.canvas.draw()
+
+    def prev_wordcloud(self):
+        if self.wordclouds is None:
+            return
+        self.current_wordcloud = (self.current_wordcloud - 1) % len(self.wordclouds)
+        self.display_wordcloud(self.current_wordcloud)
+
+    def next_wordcloud(self):
+        if self.wordclouds is None:
+            return
+        self.current_wordcloud = (self.current_wordcloud + 1) % len(self.wordclouds)
+        self.display_wordcloud(self.current_wordcloud)
+
+# Run the application
+app = QApplication(sys.argv)
+window = LDAApp()
+window.show()
+sys.exit(app.exec_())
