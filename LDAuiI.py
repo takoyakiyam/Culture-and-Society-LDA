@@ -173,7 +173,7 @@ class LDAApp(QWidget):
             return
 
         # Generate word clouds for the topics
-        no_top_words = 10
+        no_top_words = 20
         self.wordclouds = []
         for topic_idx, topic in enumerate(self.lda.components_):
             word_freq = {self.feature_names[i]: topic[i] for i in topic.argsort()[:-no_top_words - 1:-1]}
