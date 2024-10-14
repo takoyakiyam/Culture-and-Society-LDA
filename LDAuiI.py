@@ -8,6 +8,8 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from sklearn.metrics import pairwise_distances
+import numpy as np
 
 class LDAApp(QWidget):
     def __init__(self):
@@ -100,14 +102,14 @@ class LDAApp(QWidget):
         self.current_wordcloud = 0
 
     def run_lda(self):
-        # Step 4: Apply LDA
+        # Apply LDA with the selected number of topics
         n_topics = self.topic_count.value()
         self.lda = LatentDirichletAllocation(n_components=n_topics, random_state=42)
         self.lda.fit(self.doc_term_matrix)
 
-        # Generate and display topic summaries
+        # Generate topic summaries and coherence scores
         topic_summaries = self.generate_topic_summaries()
-        self.summary_text.setPlainText("\n".join(topic_summaries))
+        self.summary_text.setHtml("".join(topic_summaries)) 
 
         # Reset wordclouds and navigation buttons
         self.wordclouds = None
@@ -120,11 +122,46 @@ class LDAApp(QWidget):
     def generate_topic_summaries(self):
         no_top_words = 10
         topic_summaries = []
+        topic_coherence_scores = self.calculate_topic_coherence()  # Calculate coherence scores
+
+        # HTML style formatting for output
         for topic_idx, topic in enumerate(self.lda.components_):
             top_words = [self.feature_names[i] for i in topic.argsort()[:-no_top_words - 1:-1]]
-            summary = f"Topic {topic_idx + 1}: {', '.join(top_words[:5])}"
+            coherence_score = topic_coherence_scores[topic_idx]
+
+            # Color-coding the coherence score based on value
+            if coherence_score > 0.5:
+                color = "green"  # High coherence (closer to 1)
+            elif coherence_score > 0.3:
+                color = "orange"  # Medium coherence
+            else:
+                color = "red"  # Low coherence
+
+            # Formatting each topic and score with HTML tags
+            summary = (f"<b>Topic {topic_idx + 1}:</b> {', '.join(top_words[:5])}<br>"
+                    f"<b>Coherence Score:</b> <span style='color:{color};'>{coherence_score:.4f}</span><br><br>")
             topic_summaries.append(summary)
+
         return topic_summaries
+
+    def calculate_topic_coherence(self):
+        """
+        Calculate coherence score for each topic using word co-occurrence.
+        This uses cosine similarity between word distributions for simplicity.
+        """
+        word_co_occurrence_matrix = np.dot(self.doc_term_matrix.T, self.doc_term_matrix)  # Co-occurrence matrix
+        topic_coherence_scores = []
+
+        for topic in self.lda.components_:
+            # Get the indices of the top words
+            top_indices = topic.argsort()[:-11:-1]  # Top 10 words
+            top_words_matrix = word_co_occurrence_matrix[top_indices, :][:, top_indices]
+            
+            # Compute pairwise distances between the words in the topic (cosine similarity for example)
+            coherence = np.mean(1 - pairwise_distances(top_words_matrix, metric='cosine'))  # Average cosine similarity
+            topic_coherence_scores.append(coherence)
+        
+        return topic_coherence_scores
 
     def generate_wordclouds(self):
         if self.lda is None:
