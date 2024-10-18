@@ -7,8 +7,9 @@ from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import (QApplication, QHBoxLayout, QLabel, QPushButton,
-                             QSpinBox, QTextEdit, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
+                             QPushButton, QSpinBox, QTextEdit, QVBoxLayout,
+                             QWidget)
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import pairwise_distances
@@ -40,6 +41,20 @@ class LDAApp(QWidget):
         )
         self.description_label.setWordWrap(True)
         self.layout.addWidget(self.description_label)
+
+        # Dropdown for Type of Event
+        self.event_type_label = QLabel("Select Type of Event:")
+        self.layout.addWidget(self.event_type_label)
+
+        self.event_type_combo = QComboBox()
+        self.event_type_combo.addItem("All")  # Option to select all events
+        self.layout.addWidget(self.event_type_combo)
+
+        # Load the dataset to populate the combo box
+        self.df = pd.read_csv('World Important Dates.csv')
+        event_types = self.df['Type of Event'].dropna().unique()
+        for event in event_types:
+            self.event_type_combo.addItem(event)
 
         # Input: Number of topics
         self.topic_label = QLabel("Number of Topics:")
@@ -88,7 +103,7 @@ class LDAApp(QWidget):
         self.nav_layout = QHBoxLayout()
 
         # Previous button as an arrow
-        self.prev_button = QPushButton("<-")
+        self .prev_button = QPushButton("<-")
         self.prev_button.setStyleSheet("background-color: #FFC107; font-weight: bold;")
         self.prev_button.clicked.connect(self.prev_wordcloud)
         self.prev_button.setVisible(False)  # Initially hidden
@@ -104,19 +119,28 @@ class LDAApp(QWidget):
         self.layout.addLayout(self.nav_layout)
         self.setLayout(self.layout)
 
-        # Load and process the dataset
-        self.df = pd.read_csv('World Important Dates.csv')
-        self.impact_text = self.df['Impact'].dropna()
-        self.count_vectorizer = CountVectorizer(stop_words='english', max_df=0.95, min_df=2)
-        self.doc_term_matrix = self.count_vectorizer.fit_transform(self.impact_text)
-        self.feature_names = self.count_vectorizer.get_feature_names_out()
+        self.impact_text = None
+        self.count_vectorizer = None
+        self.doc_term_matrix = None
+        self.feature_names = None
         self.lda = None
         self.wordclouds = None
         self.current_wordcloud = 0
 
     def run_lda(self):
+        # Filter data based on selected event type
+        selected_event = self.event_type_combo.currentText()
+        if selected_event != "All":
+            filtered_df = self.df[self.df['Type of Event'] == selected_event]
+            self.impact_text = filtered_df['Impact'].dropna()
+        else:
+            self.impact_text = self.df['Impact'].dropna()
+
         # Apply LDA with the selected number of topics
         n_topics = self.topic_count.value()
+        self.count_vectorizer = CountVectorizer(stop_words='english', max_df=0.95, min_df=2)
+        self.doc_term_matrix = self.count_vectorizer.fit_transform(self.impact_text)
+        self.feature_names = self.count_vectorizer.get_feature_names_out()
         self.lda = LatentDirichletAllocation(n_components=n_topics, random_state=42)
         self.lda.fit(self.doc_term_matrix)
 
@@ -131,7 +155,7 @@ class LDAApp(QWidget):
         self.current_wordcloud = 0
         self.figure.clear()
         self.canvas.draw()
-
+        
     def generate_topic_summaries(self):
         no_top_words = self.top_words_count.value()  # Get the number from the SpinBox
         topic_summaries = []
