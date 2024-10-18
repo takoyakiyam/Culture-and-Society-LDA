@@ -142,7 +142,7 @@ class LDAApp(QWidget):
                 color = "red"  # Low coherence
 
             # Formatting each topic and score with HTML tags
-            summary = (f"<b>Topic {topic_idx + 1}:</b> {', '.join(top_words[:5])}<br>"
+            summary = (f"<b>Topic {topic_idx + 1}:</b> {', '.join(top_words[:10])}<br>"
                     f"<b>Coherence Score:</b> <span style='color:{color};'>{coherence_score:.4f}</span><br><br>")
             topic_summaries.append(summary)
 
