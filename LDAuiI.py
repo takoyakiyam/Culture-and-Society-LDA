@@ -1,15 +1,19 @@
 import sys
-import pandas as pd
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QSpinBox, QTextEdit, QHBoxLayout
-from PyQt5.QtGui import QFont
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.decomposition import LatentDirichletAllocation
-from wordcloud import WordCloud
+
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-from sklearn.metrics import pairwise_distances
 import numpy as np
+import pandas as pd
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import (QApplication, QHBoxLayout, QLabel, QPushButton,
+                             QSpinBox, QTextEdit, QVBoxLayout, QWidget)
+from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import pairwise_distances
+from wordcloud import WordCloud
+
 
 class LDAApp(QWidget):
     def __init__(self):
@@ -43,7 +47,7 @@ class LDAApp(QWidget):
         
         self.topic_count = QSpinBox()
         self.topic_count.setMinimum(1)
-        self.topic_count.setValue(5)  # Default value
+        self.topic_count.setValue(5)  
         self.layout.addWidget(self.topic_count)
 
         # Button to generate topics
@@ -120,7 +124,7 @@ class LDAApp(QWidget):
         self.canvas.draw()
 
     def generate_topic_summaries(self):
-        no_top_words = 10
+        no_top_words = 20
         topic_summaries = []
         topic_coherence_scores = self.calculate_topic_coherence()  # Calculate coherence scores
 
