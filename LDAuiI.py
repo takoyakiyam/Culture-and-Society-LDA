@@ -49,6 +49,15 @@ class LDAApp(QWidget):
         self.topic_count.setMinimum(1)
         self.topic_count.setValue(5)  
         self.layout.addWidget(self.topic_count)
+        
+        # Input: Number of Top Words
+        self.top_words_label = QLabel("Number of Top Words per Topic:")
+        self.layout.addWidget(self.top_words_label)
+
+        self.top_words_count = QSpinBox()
+        self.top_words_count.setMinimum(1)
+        self.top_words_count.setValue(10)  # Default value
+        self.layout.addWidget(self.top_words_count)
 
         # Button to generate topics
         self.generate_button = QPushButton("Generate Topics")
@@ -124,9 +133,9 @@ class LDAApp(QWidget):
         self.canvas.draw()
 
     def generate_topic_summaries(self):
-        no_top_words = 20
+        no_top_words = self.top_words_count.value()  # Get the number from the SpinBox
         topic_summaries = []
-        topic_coherence_scores = self.calculate_topic_coherence()  # Calculate coherence scores
+        topic_coherence_scores = self.calculate_topic_coherence()
 
         # HTML style formatting for output
         for topic_idx, topic in enumerate(self.lda.components_):
@@ -142,7 +151,7 @@ class LDAApp(QWidget):
                 color = "red"  # Low coherence
 
             # Formatting each topic and score with HTML tags
-            summary = (f"<b>Topic {topic_idx + 1}:</b> {', '.join(top_words[:10])}<br>"
+            summary = (f"<b>Topic {topic_idx + 1}:</b> {', '.join(top_words)}<br>"
                     f"<b>Coherence Score:</b> <span style='color:{color};'>{coherence_score:.4f}</span><br><br>")
             topic_summaries.append(summary)
 
