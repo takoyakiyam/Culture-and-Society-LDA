@@ -106,6 +106,7 @@ class LDAApp(QWidget):
 
         # Load and process the dataset
         self.df = pd.read_csv('World Important Dates.csv')
+        self.event_types = self.df['Type of Event']
         self.impact_text = self.df['Impact'].dropna()
         self.count_vectorizer = CountVectorizer(stop_words='english', max_df=0.95, min_df=2)
         self.doc_term_matrix = self.count_vectorizer.fit_transform(self.impact_text)
@@ -132,26 +133,33 @@ class LDAApp(QWidget):
         self.figure.clear()
         self.canvas.draw()
 
+    def create_event_type_dict(self):
+        event_type_dict = {}
+        for topic_idx, topic in enumerate(self.lda.components_):
+            top_words = [self.feature_names[i] for i in topic.argsort()[:-11:-1]]
+            event_types = self.event_types[self.impact_text.str.contains('|'.join(top_words))]
+            event_type_dict[topic_idx] = event_types.value_counts().index[0]
+        return event_type_dict
+
     def generate_topic_summaries(self):
-        no_top_words = self.top_words_count.value()  # Get the number from the SpinBox
+        no_top_words = self.top_words_count.value()
         topic_summaries = []
         topic_coherence_scores = self.calculate_topic_coherence()
+        event_type_dict = self.create_event_type_dict()
 
-        # HTML style formatting for output
         for topic_idx, topic in enumerate(self.lda.components_):
             top_words = [self.feature_names[i] for i in topic.argsort()[:-no_top_words - 1:-1]]
             coherence_score = topic_coherence_scores[topic_idx]
+            event_type = event_type_dict[topic_idx]
 
-            # Color-coding the coherence score based on value
             if coherence_score > 0.5:
-                color = "green"  # High coherence (closer to 1)
+                color = "green"
             elif coherence_score > 0.3:
-                color = "orange"  # Medium coherence
+                color = "orange"
             else:
-                color = "red"  # Low coherence
+                color = "red"
 
-            # Formatting each topic and score with HTML tags
-            summary = (f"<b>Topic {topic_idx + 1}:</b> {', '.join(top_words)}<br>"
+            summary = (f"<b>Topic {topic_idx + 1} ({event_type}):</b> {', '.join(top_words)}<br>"
                     f"<b>Coherence Score:</b> <span style='color:{color};'>{coherence_score:.4f}</span><br><br>")
             topic_summaries.append(summary)
 
@@ -188,12 +196,14 @@ class LDAApp(QWidget):
         # Generate word clouds for the topics
         no_top_words = 20
         self.wordclouds = []
+        event_types = self.create_event_type_dict()  # Get the event types
+
         for topic_idx, topic in enumerate(self.lda.components_):
             word_freq = {self.feature_names[i]: topic[i] for i in topic.argsort()[:-no_top_words - 1:-1]}
             wc = WordCloud(background_color='#FFFFFF', width=400, height=200).generate_from_frequencies(word_freq)
-            self.wordclouds.append(wc)
+            self.wordclouds.append((wc, event_types[topic_idx]))  # Store word cloud and corresponding event type
 
-        self.display_wordcloud(0)
+        self.display_wordcloud(0)  # Show the first word cloud
 
         # Show navigation buttons
         self.prev_button.setVisible(True)
@@ -202,9 +212,9 @@ class LDAApp(QWidget):
     def display_wordcloud(self, idx):
         self.figure.clear()
         ax = self.figure.add_subplot(111)
-        ax.imshow(self.wordclouds[idx], interpolation='bilinear')
+        ax.imshow(self.wordclouds[idx][0], interpolation='bilinear')  # Get the word cloud
         ax.axis("off")
-        ax.set_title(f"Topic {idx + 1}", fontsize=14, fontweight='bold')
+        ax.set_title(f"Topic {idx + 1} ({self.wordclouds[idx][1]}):", fontsize=14, fontweight='bold')  # Include event type
         self.canvas.draw()
 
     def prev_wordcloud(self):
